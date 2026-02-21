@@ -1,0 +1,142 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=DM+Sans:wght@400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+:root {
+  --bg: #0d0d0d;
+  --card: #161616;
+  --card-hover: #1a1a1a;
+  --border: rgba(255,255,255,0.07);
+  --yellow: #f5c542;
+  --green: #3ddc84;
+  --red: #ff5c5c;
+  --orange: #ff8c42;
+  --blue: #5ba4f5;
+  --teal: #2dd4bf;
+  --text-muted: #555;
+  --text-dim: #888;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  color: #eee;
+  background: var(--bg);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono { font-family: 'Space Mono', monospace; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 10px; }
+
+/* Sidebar icon buttons */
+.sidebar-btn {
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px;
+  color: var(--text-muted);
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.sidebar-btn:hover { background: rgba(255,255,255,0.05); color: #aaa; }
+.sidebar-btn.active { background: var(--yellow); color: #000; }
+
+/* Stat cards */
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card .label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-family: 'Space Mono', monospace;
+}
+.stat-card .value {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.stat-card .badge {
+  position: absolute;
+  top: 16px; right: 16px;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 6px;
+  font-family: 'Space Mono', monospace;
+}
+.stat-card .sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: 'Space Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Progress bar */
+.progress-bar {
+  height: 4px;
+  background: #222;
+  border-radius: 99px;
+  overflow: hidden;
+  flex: 1;
+}
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+/* Status badge */
+.status-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 0.05em;
+  display: flex; align-items: center; gap: 4px;
+}
+.status-badge::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Upload area */
+.upload-area {
+  border: 1.5px dashed rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 32px 16px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.upload-area:hover { border-color: rgba(245,197,66,0.4); }
+
+/* File progress row */
+.file-row {
+  background: rgba(255,255,255,0.03);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+/* Table row hover */
+.inv-row:hover { background: rgba(255,255,255,0.03); }
