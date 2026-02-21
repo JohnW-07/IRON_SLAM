@@ -1,23 +1,14 @@
 # IRON_SLAM
 
-# RUNNING_COMMANDS:
+# STEP 1
 
-### Fast mode (2fps, good for 3-6 sec clips)
-python pipeline.py --model snow.obj --video site.mp4 --outdir results/
-
-### Accurate mode (every frame)
-python pipeline.py --model snow.obj --video site.mp4 --outdir results/ --mode accurate
-
-### Keep frames/depth maps for inspection
-python pipeline.py --model snow.obj --video site.mp4 --outdir results/ --keep-frames
-
-# 🎬 Clean Video
+## 🎬 Clean Video
 
 Clean Video is an AI-powered video enhancement platform that transforms low-quality footage into smooth, high-resolution, production-ready video.
 
 ---
 
-## 🧠 How It Works
+### 🧠 How It Works
 
 We built a deep learning pipeline that combines:
 
@@ -29,7 +20,7 @@ Instead of basic resizing or frame duplication, our system learns motion and tex
 
 ---
 
-## ⚙️ Processing Pipeline
+### ⚙️ Processing Pipeline
 
 1. **Frame Extraction** – The input video is broken into individual frames.  
 2. **Denoising** – Noise and compression artifacts are removed.  
@@ -39,11 +30,13 @@ Instead of basic resizing or frame duplication, our system learns motion and tex
 
 ---
 
-## 🚀 Result
+### 🚀 Result
 
 The final output video is:
 
 - Higher resolution  
 - Higher frame rate  
 - Sharper and cleaner  
-- Visually smoother and more professional  
+- Visually smoother and more professional
+
+# STEP 2
