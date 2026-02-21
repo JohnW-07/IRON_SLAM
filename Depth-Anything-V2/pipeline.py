@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
 IronSLAM Pipeline
-Usage: python pipeline.py --model model.obj --image site_photo.jpg --outdir results/
+Usage: python pipeline.py --model model.obj --video site_video.mp4 --outdir results/
+       python pipeline.py --model model.obj --video site_video.mp4 --outdir results/ --mode accurate
 """
 
 import argparse
 import os
 import sys
 import subprocess
-from depth_to_pointcloud import generate_pointcloud as gen_pc
+
 
 def run_step(description, func, *args, **kwargs):
     print(f"\n{'='*50}")
@@ -18,100 +19,137 @@ def run_step(description, func, *args, **kwargs):
     print(f"  ✓ Done")
     return result
 
+
 def main():
     parser = argparse.ArgumentParser(description='IronSLAM: As-Built vs As-Designed Comparison')
-    parser.add_argument('--model',   type=str, required=True, help='Path to 3D model (.obj or .gltf)')
-    parser.add_argument('--image',   type=str, required=True, help='Path to site photo')
-    parser.add_argument('--outdir',  type=str, default='results', help='Output directory')
-    parser.add_argument('--encoder', type=str, default='vits', choices=['vits', 'vitb', 'vitl'])
-    parser.add_argument('--ceiling-height', type=float, default=10.0, help='Real-world ceiling height in feet')
-    parser.add_argument('--downsample', type=int, default=2, help='Point cloud downsample factor')
+    parser.add_argument('--model',          type=str,   required=True,  help='Path to 3D model (.obj or .gltf)')
+    parser.add_argument('--video',          type=str,   required=True,  help='Path to site video (mp4, mov, etc.)')
+    parser.add_argument('--outdir',         type=str,   default='results', help='Output directory')
+    parser.add_argument('--encoder',        type=str,   default='vits', choices=['vits', 'vitb', 'vitl'])
+    parser.add_argument('--ceiling-height', type=float, default=10.0,  help='Real-world ceiling height in feet')
+    parser.add_argument('--downsample',     type=int,   default=3,     help='Point cloud downsample factor per frame')
+    parser.add_argument('--mode',           type=str,   default='fast', choices=['fast', 'accurate'],
+                        help='Frame extraction: fast=2fps, accurate=every frame')
+    parser.add_argument('--keep-frames',    action='store_true',       help='Keep extracted frames and depth maps')
     args = parser.parse_args()
 
     # Validate inputs
     if not os.path.exists(args.model):
         print(f"ERROR: Model file not found: {args.model}")
         sys.exit(1)
-    if not os.path.exists(args.image):
-        print(f"ERROR: Image file not found: {args.image}")
+    if not os.path.exists(args.video):
+        print(f"ERROR: Video file not found: {args.video}")
         sys.exit(1)
 
     os.makedirs(args.outdir, exist_ok=True)
-    depth_dir = os.path.join(args.outdir, 'depth')
-    os.makedirs(depth_dir, exist_ok=True)
+
+    video_basename = os.path.splitext(os.path.basename(args.video))[0]
+    ply_path       = os.path.join(args.outdir, f'{video_basename}_fused.ply')
 
     # ── Step 1: Parse 3D model ──────────────────────────────────────────────
-    run_step("Step 1/4: Parsing 3D model → as_designed.json", parse_model,
-             args.model, args.outdir)
+    run_step("Step 1/4: Parsing 3D model → as_designed.json",
+             parse_model, args.model, args.outdir)
 
-    # ── Step 2: Generate depth map ─────────────────────────────────────────
-    run_step("Step 2/5: Generating depth map via Depth Anything V2", generate_depth,
-             args.image, depth_dir, args.encoder)
+    # ── Step 2: Video → depth maps → fused point cloud ─────────────────────
+    run_step(f"Step 2/4: Extracting frames ({args.mode} mode) + depth maps + ICP fusion",
+             generate_fused_cloud,
+             args.video, ply_path, args.mode, args.encoder,
+             args.ceiling_height, args.downsample, args.keep_frames)
 
-    # ── Step 2.5: Generate point cloud ─────────────────────────────────────
-    basename       = os.path.splitext(os.path.basename(args.image))[0]
-    depth_map_path = os.path.join(depth_dir, basename + '.png')
-    ply_path       = os.path.join(args.outdir, basename + '_pointcloud.ply')
-    run_step("Step 3/5: Generating point cloud → .ply", generate_pointcloud,
-             args.image, depth_map_path, ply_path,
-             args.ceiling_height, args.downsample)
+    # ── Step 3: Extract representative frame for vision query ───────────────
+    keyframe_path = os.path.join(args.outdir, 'keyframe.png')
+    run_step("Step 3/4: Extracting keyframe for vision analysis",
+             extract_keyframe, args.video, keyframe_path)
 
-    # ── Step 3: Query LLM vision for object locations ──────────────────────
-    run_step("Step 4/5: Querying vision model for As-Built object locations", query_vision,
-             args.image, args.outdir)
+    # ── Step 4: Vision query + annotate ────────────────────────────────────
+    run_step("Step 4/4: Vision analysis + As-Built vs As-Designed annotation",
+             vision_and_annotate,
+             keyframe_path, ply_path, args.outdir, args.ceiling_height)
 
-    # ── Step 4: Align, compare, and annotate ──────────────────────────────
-    run_step("Step 5/5: Comparing As-Built vs As-Designed & annotating image", compare_and_annotate,
-             args.image, depth_dir, args.outdir, args.ceiling_height)
-
-    annotated = os.path.join(args.outdir, 'annotated.png')
+    # ── Summary ─────────────────────────────────────────────────────────────
     print(f"\n{'='*50}")
-    print(f"  Pipeline complete!")
-    print(f"  Annotated output: {annotated}")
+    print(f"  Pipeline complete! Outputs in: {args.outdir}/")
+    print(f"")
+    print(f"  {video_basename}_fused.ply   ← open in MeshLab / CloudCompare")
+    print(f"  annotated.png               ← labeled comparison image")
+    print(f"  annotated_report.json       ← structured discrepancy data")
+    print(f"  as_designed.json            ← parsed model objects")
+    print(f"  as_built.json               ← detected objects from video")
     print(f"{'='*50}\n")
 
 
-# ── Step implementations ────────────────────────────────────────────────────
-
-def generate_pointcloud(image_path, depth_map_path, ply_path, ceiling_height, downsample):
-    gen_pc(
-        image_path        = image_path,
-        depth_map_path    = depth_map_path,
-        output_path       = ply_path,
-        ceiling_height_ft = ceiling_height,
-        downsample        = downsample,
-    )
+# ── Step implementations ──────────────────────────────────────────────────────
 
 def parse_model(model_path, outdir):
     from parse_model import parse_and_save
     parse_and_save(model_path, os.path.join(outdir, 'as_designed.json'))
 
-def generate_depth(image_path, depth_dir, encoder):
-    # Reuse existing run.py
+
+def generate_fused_cloud(video_path, ply_path, mode, encoder,
+                          ceiling_height, downsample, keep_frames):
+    from video_to_pointcloud import process_video
+    process_video(
+        video_path        = video_path,
+        output_ply        = ply_path,
+        mode              = mode,
+        encoder           = encoder,
+        ceiling_height_ft = ceiling_height,
+        downsample        = downsample,
+        keep_frames       = keep_frames,
+    )
+
+
+def extract_keyframe(video_path, keyframe_path):
+    """Extract the middle frame of the video as the representative keyframe."""
+    import cv2
+    cap = cv2.VideoCapture(video_path)
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.set(cv2.CAP_PROP_POS_FRAMES, total // 2)
+    ret, frame = cap.read()
+    cap.release()
+    if ret:
+        cv2.imwrite(keyframe_path, frame)
+        print(f"  Keyframe: frame {total//2}/{total}")
+    else:
+        raise RuntimeError("Could not extract keyframe from video")
+
+
+def vision_and_annotate(keyframe_path, ply_path, outdir, ceiling_height):
+    """Run vision query on keyframe then generate depth map and annotate."""
+    import cv2
+
+    # Generate depth map for the keyframe
+    depth_dir = os.path.join(outdir, 'keyframe_depth')
+    os.makedirs(depth_dir, exist_ok=True)
+
     result = subprocess.run([
         sys.executable, 'run.py',
-        '--encoder', encoder,
-        '--img-path', image_path,
+        '--encoder', 'vits',
+        '--img-path', keyframe_path,
         '--outdir', depth_dir,
-        '--pred-only'  # depth map only, no side-by-side
+        '--pred-only'
     ], capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"  WARNING: depth generation stderr:\n{result.stderr}")
 
-def query_vision(image_path, outdir):
+    if result.returncode != 0:
+        print(f"  WARNING: keyframe depth generation error:\n{result.stderr[-300:]}")
+
+    # Vision query
     from vision_query import query_and_save
     as_designed_path = os.path.join(outdir, 'as_designed.json')
-    query_and_save(image_path, as_designed_path, os.path.join(outdir, 'as_built.json'))
-
-def compare_and_annotate(image_path, depth_dir, outdir, ceiling_height):
-    from annotate import compare_and_draw
-    import os
-    basename = os.path.splitext(os.path.basename(image_path))[0]
-    depth_map_path = os.path.join(depth_dir, basename + '.png')
-    as_designed_path = os.path.join(outdir, 'as_designed.json')
     as_built_path    = os.path.join(outdir, 'as_built.json')
-    out_path         = os.path.join(outdir, 'annotated.png')
-    compare_and_draw(image_path, depth_map_path, as_designed_path, as_built_path, out_path, ceiling_height)
+    query_and_save(keyframe_path, as_designed_path, as_built_path)
+
+    # Annotate
+    from annotate import compare_and_draw
+    depth_map_path = os.path.join(depth_dir, 'keyframe.png')
+    compare_and_draw(
+        image_path        = keyframe_path,
+        depth_map_path    = depth_map_path,
+        as_designed_path  = as_designed_path,
+        as_built_path     = as_built_path,
+        out_path          = os.path.join(outdir, 'annotated.png'),
+        ceiling_height_ft = ceiling_height,
+    )
 
 
 if __name__ == '__main__':
