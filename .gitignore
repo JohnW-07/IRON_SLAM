@@ -1,0 +1,10 @@
+.venv/
+
+/Depth-Anything-V2/.env
+/Depth-Anything-V2/checkpoints/
+
+
+*.ply
+*.obj
+*.png
+/Depth-Anything-V2/results/
