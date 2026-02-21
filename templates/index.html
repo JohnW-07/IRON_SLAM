@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video AI Analyzer</title>
+</head>
+<body>
+    <h2>Upload Video</h2>
+
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="video" required>
+        <button type="submit">Upload</button>
+    </form>
+
+    <div id="status"></div>
+
+<script>
+document.getElementById("uploadForm").onsubmit = async function(e) {
+    e.preventDefault();
+
+    let formData = new FormData(this);
+
+    let response = await fetch("/upload", {
+        method: "POST",
+        body: formData
+    });
+
+    let result = await response.json();
+    let videoId = result.video_id;
+
+    document.getElementById("status").innerHTML = "Processing...";
+
+    checkStatus(videoId);
+};
+
+async function checkStatus(videoId) {
+    let interval = setInterval(async () => {
+        let response = await fetch(`/status/${videoId}`);
+        let data = await response.json();
+
+        if (data.status === "done") {
+            clearInterval(interval);
+            window.location.href = `/results/${videoId}`;
+        }
+    }, 3000);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+video_ai_app/
+│
+├── app.py
+├── models.py
+├── requirements.txt
+│
+├── static/
+│   └── uploads/
+│
+├── templates/
+│   ├── index.html
+│   └── results.html
+│
+└── ml/
+    └── video_analyzer.py
