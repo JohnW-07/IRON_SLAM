@@ -173,6 +173,27 @@ def generate_depth_maps(frame_paths: list, depth_dir: str, encoder: str = 'vits'
     """Run Depth Anything V2 on all frames. Returns list of depth map paths."""
     os.makedirs(depth_dir, exist_ok=True)
 
+    # ── Filter blurry frames before depth generation ──
+    sharp_paths = []
+    blur_count = 0
+    scores = []
+
+    for fp in frame_paths:
+        sharp, score = is_sharp(fp, threshold=30.0)
+        scores.append(score)
+        if sharp:
+            sharp_paths.append(fp)
+        else:
+            blur_count += 1
+            os.remove(fp)  # delete from frames dir so run.py ignores it
+
+    if not sharp_paths:
+        raise RuntimeError("All frames were filtered as blurry. Lower --blur-threshold.")
+
+    print(f"  Sharpness filter: kept {len(sharp_paths)}/{len(frame_paths)} frames "
+          f"(removed {blur_count} blurry, min={min(scores):.0f} max={max(scores):.0f} "
+          f"median={float(np.median(scores)):.0f})")
+
     # Run run.py on the entire frames directory at once (more efficient)
     frames_dir = os.path.dirname(frame_paths[0])
 
@@ -374,7 +395,17 @@ def write_ply(filepath: str, points: np.ndarray, colors: np.ndarray):
             f.write(xyz[i].tobytes())
             f.write(rgb[i].tobytes())
 
-
+def is_sharp(image_path: str, threshold: float = 30.0) -> tuple:
+    """
+    Detect motion blur using Laplacian variance.
+    Higher variance = sharper image.
+    Returns (is_sharp, score).
+    """
+    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        return False, 0.0
+    score = cv2.Laplacian(img, cv2.CV_64F).var()
+    return score >= threshold, round(score, 2)
 # ── Main entry ────────────────────────────────────────────────────────────────
 
 def process_video(video_path: str,
@@ -383,7 +414,8 @@ def process_video(video_path: str,
                   encoder: str = 'vits',
                   ceiling_height_ft: float = 10.0,
                   downsample: int = 3,
-                  keep_frames: bool = False) -> str:
+                  keep_frames: bool = False,
+                  blur_threshold: float = 30.0) -> str:
     """
     Full pipeline: video → frames → depth maps → fused point cloud.
 
@@ -444,12 +476,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Video → fused point cloud via Depth Anything V2 + ICP')
     parser.add_argument('--video',          type=str,   required=True, help='Input video file')
     parser.add_argument('--out',            type=str,   required=True, help='Output .ply path')
-    parser.add_argument('--mode',           type=str,   default='fast', choices=['fast', 'accurate'],
+    parser.add_argument('--mode',           type=str,   default='accurate', choices=['fast', 'accurate'],
                         help='fast=2fps, accurate=every frame')
-    parser.add_argument('--encoder',        type=str,   default='vits', choices=['vits', 'vitb', 'vitl'])
+    parser.add_argument('--encoder',        type=str,   default='vitl', choices=['vits', 'vitb', 'vitl'])
     parser.add_argument('--ceiling-height', type=float, default=10.0,  help='Scene height in feet')
-    parser.add_argument('--downsample',     type=int,   default=3,     help='Pixel skip per frame (3=~1/9 density)')
+    parser.add_argument('--downsample',     type=int,   default=2,     help='Pixel skip per frame (2=~1/4 density)')
     parser.add_argument('--keep-frames',    action='store_true',       help='Keep extracted frames and depth maps')
+    parser.add_argument('--blur-threshold', type=float, default=10.0,
+                    help='Laplacian variance threshold — higher=stricter (50=lenient, 100=default, 200=strict)')
     args = parser.parse_args()
 
     process_video(
