@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Iron ScaN</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+
+<body>
+
+<header class="topbar">
+    <div class="logo">
+        <img src="{{ url_for('static', filename='assets/iron_logo.png') }}" 
+            alt="Iron Scan Logo" 
+            class="logo-icon">
+        <span>Iron ScaN</span>
+    </div>
+    <!--<div class="project-info">SITE-047 · DOWNTOWN TOWER PROJECT · FEB 21 2026</div> -->
+
+    <div class="actions">
+        <!--<button class="btn secondary">LIVE MONITORING</button>-->
+        <!--<button class="btn secondary">EXPORT</button>-->
+        <button class="btn primary" id="uploadBtn">UPLOAD VIDEO</button>
+    </div>
+</header>
+
+<section class="models-section">
+    <div class="section-title"></div>
+
+    <div class="models-container">
+
+        <div class="model-box blue">
+            <div class="box-title">DEPTH MAP</div>
+            <div class="viewer depth-container">
+                <img id="depthImage" src="" class="depth-img hidden">
+            </div>
+        </div>
+
+        <div class="model-box orange">
+            <div class="box-title">3D SCANNED AI MODEL</div>
+            <model-viewer
+                id="modelViewer"
+                exposure="1"
+                shadow-intensity="1"
+                camera-controls
+                environment-image="neutral"
+                style="width:100%; height:100%;">
+            </model-viewer>
+            
+            <div id="processingOverlay" class="processing-overlay hidden">
+                <div class="processing-card">
+                    <div class="processing-title">PROCESSING SITE SCAN</div>
+                    <div id="processingLogs" class="processing-logs"></div>
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    
+
+</section>
+
+<section class="evidence-section">
+    <div class="section-title">ISSUE EVIDENCE</div>
+
+    <div class="evidence-container">
+
+        <div class="evidence-box expected">
+            <div class="evidence-title">EXPECTED</div>
+            <div class="evidence-viewer">
+                <img id="expectedImage" src="" class="evidence-img hidden">
+            </div>
+        </div>
+
+        <div class="evidence-box actual">
+            <div class="evidence-title">ACTUAL</div>
+            <div class="evidence-viewer">
+                <img id="actualImage" src="" class="evidence-img hidden">
+            </div>
+        </div>
+
+    </div>
+
+</section>
+
+<input type="file" id="videoInput" hidden>
+
+<!-- YOUR SCRIPT -->
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+</body>
+</html>
